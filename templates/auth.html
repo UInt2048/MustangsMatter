@@ -1,0 +1,62 @@
+   {% if profile_data.get('userID', None) != None %}
+   {% if incomplete_goals|length > 0 %}
+   <div class="container">
+   <h2>Goals for {{profile_data['name']}}</h2>
+   <div class="row">
+   {% for goal in incomplete_goals %}
+       {% include 'goal.html' %}
+   {% endfor %}
+   </div>
+   </div>
+   {% else %}
+   <p>No goals in progress for {{profile_data['name']}}</p>
+   {% endif %}
+  
+   <br/>
+   <hr/>
+   <br/>
+
+   {% if complete_goals|length > 0 %}
+   <div class="container">
+   <h2>Completed goals for {{profile_data['name']}}</h2>
+   <div class="row">
+   {% for goal in complete_goals %}
+       {% include 'goal.html' %}
+   {% endfor %}
+   </div>
+   </div>
+   {% else %}
+   <p>No completed goals for {{profile_data['name']}}</p>
+   {% endif %}
+
+   <br />
+   <hr />
+   <br />
+
+    
+    <button class="btn btn-primary my-2" type="submit" onclick="document.getElementById('addgoal').hidden = false;">Add goal</button>
+    <form action="javascript:void(0);" hidden=true id="addgoal">
+        <label for="name">Name of goal:</label>
+        <input type="text" id="name" name="name" autocomplete="off" required maxlength="25" size="10" /><br/>
+        <label for="type">Type of goal:</label>
+        <input type="radio" name="type" id="type">Physical</input>
+        <input type="radio" name="type">Mental</input><br/>
+        <label for="0">Days for goal:</label>
+        <input type="checkbox" id="0" name="day">Monday</input>
+        <input type="checkbox" id="1" name="day">Tuesday</input>
+        <input type="checkbox" id="2" name="day">Wednesday</input>
+        <input type="checkbox" id="3" name="day">Thursday</input>
+        <input type="checkbox" id="4" name="day">Friday</input>
+        <input type="checkbox" id="5" name="day">Saturday</input>
+        <input type="checkbox" id="6" name="day">Sunday</input><br/>
+        <input type="checkbox" id="notifs">Notifications</input><br/>
+        <label for="weeks">Number of weeks for goal:</label>
+        <input type="number" id="weeks" min="1" max="208" /><br/>
+        <button class="btn btn-sm btn-success my-2" type="submit">Submit</button>
+    </form>
+
+    <script>
+    document.getElementById("addgoal").addEventListener("submit", addGoal);
+    </script>
+    {% include 'chat.html' %}
+    {% endif %}

@@ -3,14 +3,25 @@
        <p>{{ goal['weeks'] }} week goal for {{ goal['user_days'] }}</p>
        <p>Notifications {{ "enabled" if goal['reminders'] else "disabled" }}</p>
        <div class="pie" style="--p:{{ (goal['times_completed'] / goal['limit'] * 100) | int }};--c:{{ goal['color'] }}"></div>
-       <form action="/complete?goal={{ goal['goalID'] }}" method="post">
+       <form action="javascript:void(0);" id="complete-goal-{{ goal['goalID'] }}">
            <button class="btn btn-primary my-2" type="submit">Complete goal for today</button>
        </form>
        <button class="btn btn-secondary my-2" onclick="document.getElementById('edit-goal-{{ goal["goalID"] }}').hidden = false;">Edit goal</button>
-       <form onsubmit="return editGoalAction(this, '{{ goal['goalID'] }}')" hidden=true id="edit-goal-{{ goal['goalID'] }}" method="post">
+       <form action="javascript:void(0);" hidden=true id="edit-goal-{{ goal['goalID'] }}">
        <label for="name-{{ goal['goalID'] }}">New name of goal:</label>
        <input id="name-{{ goal['goalID'] }}" type="text" /><br/>
        <input type="checkbox" id="notifs-{{ goal['goalID'] }}">Notifications</input><br/>
        <button class="btn btn-sm btn-success my-2" type="submit">Submit</button>
        </form>
+       <form action="javascript:void(0);" id="delete-goal-{{ goal['goalID'] }}">
+           <button class="btn btn-danger my-2" type="submit">Delete goal</button>
+       </form>
+       <script>
+       document.getElementById("complete-goal-{{ goal['goalID'] }}").
+           addEventListener("submit", completeGoal("{{ goal['goalID'] }}"));
+       document.getElementById("edit-goal-{{ goal['goalID'] }}").
+           addEventListener("submit", editGoal("{{ goal['goalID'] }}"));
+       document.getElementById("delete-goal-{{ goal['goalID'] }}").
+           addEventListener("submit", deleteGoal("{{ goal['goalID'] }}"));
+       </script> 
        </div>

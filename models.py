@@ -1,18 +1,16 @@
-
-import calendar
-import pymongo as mongo
 from apscheduler.schedulers.background import BackgroundScheduler
-import uuid
 from datetime import datetime, timedelta
-
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
+
+import calendar
 import os
+import uuid
 
 if "MONGODB_PASS" in os.environ:
-    uri = "mongodb+srv://sarahmendoza:{}@cluster0.cmoki.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0".format(os.environ["MONGODB_PASS"])
+    uri = "mongodb+srv://{}:{}@cluster0.cmoki.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0".format(os.environ["MONGODB_USER"], os.environ["MONGODB_PASS"])
 else:
-    raise "MONGODB_PASS not in environment"
+    raise Exception("MONGODB_PASS not in environment")
 
 # Create a new client and connect to the server
 client = MongoClient(uri, server_api=ServerApi('1'))
@@ -25,8 +23,6 @@ except Exception as e:
     print(e)
 
 db = client["SMU_HealthTracker"]
-#collection = db["movies"]
-
 
 def register_user(db, name, email, userID):
     db.users.insert_one({
@@ -44,8 +40,8 @@ def complete_goal(db, userID, goalID):
             # Increment times_completed and update goal in the DB
             db.goals.update_one(
                 {"goalID": goalID},
-                {"$inc": {"times_completed": 1}},
-                {"$set": {"daily_completed": True}}
+                {"$inc": {"times_completed": 1},
+                "$set": {"daily_completed": True}}
             )
             # Check if limit is reached
             if goal['times_completed'] + 1 >= goal['limit']:
@@ -55,20 +51,7 @@ def complete_goal(db, userID, goalID):
 
 
 def calculate_limit(days_of_week, weeks):
-    today = datetime.now()
-    end_date = today + timedelta(weeks=weeks)  # Calculate the end date after the specified weeks
-
-    limit = 0
-    current_date = today
-
-    while current_date <= end_date:
-        weekday = current_date.weekday()  # Get the current day of the week (0=Monday, 6=Sunday)
-        if days_of_week[weekday]:
-            limit += 1
-        current_date += timedelta(days=1)  # Move to the next day
-
-    return limit
-
+    return sum(d for d in days_of_week if d) * weeks
 
 
 def create_goal(db, userID, title, category, days, reminders, weeks):
@@ -124,6 +107,7 @@ scheduler = BackgroundScheduler()
 scheduler.add_job(reset_daily_goals, 'cron', hour=0, minute=0, args=[db])
 scheduler.start()
 
+# import pymongo as mongo
 
 ##############TESTING#############
 # def main():

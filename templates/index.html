@@ -7,7 +7,7 @@
         src="https://www.unpkg.com/@propelauth/javascript@2.0.11/dist/javascript.min.js" 
         integrity="sha384-FENNH2f7QuQvkZJBL7jebLr0OtYKgTA2iq+C5g3VXXX7SBwWmeMMoc+pBBtcn76G" 
         crossorigin="anonymous"></script>
-    <script type="module" src="{{ url_for('static', filename='index.js') }}"></script>
+    <script id="auth-script" type="module" data-propelauth-base="{{propelauth_base}}" src="{{ url_for('static', filename='js/index.js') }}"></script>
 
    <section class="jumbotron text-center">
        <div class="container" id="display-when-logged-out">
@@ -28,93 +28,8 @@
        </div>
    </section>
 
-   {% if profile_data|length > 0 %}
-   {% if incomplete_goals|length > 0 %}
-   <div class="container">
-   <h2>Goals for {{profile_data['name']}}</h2>
-   <div class="row">
-   {% for goal in incomplete_goals %}
-       {% include 'goal.html' %}
-   {% endfor %}
-   </div>
-   </div>
-   {% else %}
-   <p>No goals in progress for {{profile_data['name']}}</p>
-   {% endif %}
-  
-   <br/>
-   <hr/>
-   <br/>
-
-   {% if complete_goals|length > 0 %}
-   <div class="container">
-   <h2>Completed goals for {{profile_data['name']}}</h2>
-   <div class="row">
-   {% for goal in complete_goals %}
-       {% include 'goal.html' %}
-   {% endfor %}
-   </div>
-   </div>
-   {% else %}
-   <p>No completed goals for {{profile_data['name']}}</p>
-   {% endif %}
-
-   <br />
-   <hr />
-   <br />
-
-    <button class="btn btn-primary my-2" type="submit" onclick="document.getElementById('addgoal').hidden = false;">Add goal</button>
-    <form onsubmit="return setNewGoalAction(this)" hidden=true id="addgoal" method="post">
-        <label for="name">Name of goal:</label>
-        <input type="text" id="name" name="name" required maxlength="25" size="10" /><br/>
-        <label for="type">Type of goal:</label>
-        <input type="radio" name="type">Physical</input>
-        <input type="radio" name="type">Mental</input><br/>
-        <label for="day">Days for goal:</label>
-        <input type="checkbox" id="0" name="day">Monday</input>
-        <input type="checkbox" id="1" name="day">Tuesday</input>
-        <input type="checkbox" id="2" name="day">Wednesday</input>
-        <input type="checkbox" id="3" name="day">Thursday</input>
-        <input type="checkbox" id="4" name="day">Friday</input>
-        <input type="checkbox" id="5" name="day">Saturday</input>
-        <input type="checkbox" id="6" name="day">Sunday</input><br/>
-        <input type="checkbox" id="notifs">Notifications</input><br/>
-        <label for="weeks">Number of weeks for goal:</label>
-        <input type="number" id="weeks" min="1" max="208" /><br/>
-        <button class="btn btn-sm btn-success my-2" type="submit">Submit</button>
-    </form>
-
-    <script>
-    function setNewGoalAction(form) {
-        let name = document.getElementById("name").value;
-        let t = Array.from(document.getElementsByName("type")).map(x => x.checked);
-        let type = t[0] ? "physical" : "mental";
-        let d = Array.from(document.getElementsByName("day")).map(x => x.checked + 0);
-        let notif = document.getElementById("notifs").checked + 0;
-        let weeks = document.getElementById("weeks").value;
-        form.action = "/add?name=" + name + "&type=" + type + "&d0=" + d[0] +
-           "&d1=" + d[1] + "&d2=" + d[2] + "&d3=" + d[3] + "&d4=" + d[4] + "&d5=" + d[5] + "&d6=" + d[6] +
-           "&notifs=" + notif + "&weeks=" + weeks;
-        form.style.visibility = 'hidden';
-        return true;
-    }
-
-    function editGoalAction(form, id) {
-        let name = document.getElementById("name-" + id).value;
-        let notif = document.getElementById("notifs-" + id).checked + 0;
-        form.action = "/edit?id=" + id + "&name=" + name + "&notifs=" + notif;
-        return true;
-    }
-
-    function submitMessageAction(form) {
-        let value = document.getElementById("chatmsg").value;
-        form.action = "/message?text=" + value;
-        console.log(form.action);
-        return true;
-    }
-    </script>
-    {% include 'chat.html' %}
-    {% endif %}
+   <section id="authenticated">
+   </section>
 
 {% endblock %}
 

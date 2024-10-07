@@ -1,25 +1,7 @@
-from models import create_goal #, register_user, complete_goal, update_goal, edit_goal, reset_daily_goals
+from models import db, create_goal #, register_user, complete_goal, update_goal, edit_goal, reset_daily_goals
 from pymongo.mongo_client import MongoClient
 from pymongo.server_api import ServerApi
 import os
-
-# if "MONGODB_PASS" in os.environ:
-#     uri = "mongodb+srv://sarahmendoza:{}@cluster0.cmoki.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0".format(os.environ["MONGODB_PASS"])
-# else:
-#     raise "MONGODB_PASS not in environment"
-
-# # Create a new client and connect to the server
-# client = MongoClient(uri, server_api=ServerApi('1'))
-
-# # Send a ping to confirm a successful connection
-# try:
-#     client.admin.command('ping')
-#     print("Pinged your deployment. You successfully connected to MongoDB!")
-# except Exception as e:
-#     print(e)
-
-# db = client["SMU_HealthTracker"]
-
 
 #############ATTEMPT ONE####################
 from langchain import hub
@@ -36,10 +18,6 @@ import os
 
 from langchain_huggingface import HuggingFaceEndpoint
 from langchain_core.prompts import PromptTemplate
-
-#api_key = "api  key"
-os.environ["HUGGINGFACEHUB_API_TOKEN"] = "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"
-
 
 model_id = "mistralai/Mistral-7B-Instruct-v0.2"
 #model_id = "meta-llama/Llama-2-7b-chat"
@@ -65,9 +43,9 @@ resources = """
     {
     "SMU resources": [
     {"therapy": "SMU Teletherapy by AcademicLiveCare: High-quality, on-demand mental health care designed specifically for students. All SMU students can now initiate on-demand counseling and video appointments with a medical professional. Find out more [here](https://www.smu.edu/studentaffairs/drbobsmithhealthcenter/counseling-services/mentalhealthapps/smu-teletherapy)."},
-    {"recovery": "Collegiate Recovery Community at SMU: Struggling with substance abuse or addiction and need a change? There are students right here on campus going through the same thing who are here to support you. ind out more [here](https://www.smu.edu/studentaffairs/drbobsmithhealthcenter/counseling-services/counselingoptions)."},
-    {"wellness": "Campus Well: Check out SMU's health and well-being blog! This site has tons of information written by students for students. Read articles, watch videos, take quizzes and more! ind out more [here](https://smu.campuswell.com/)."},
-    {"habits": "WellTrack: Looking for more ways to improve your mental health? Check out WellTrack, SMU's FREE mental health app. The app contains meditation exercises, daily mood checks, stress reduction tips, and much more to help you manage stress, depression, and anxiety while at college. ind out more [here](http://smu.welltrack.com/)."},
+    {"recovery": "Collegiate Recovery Community at SMU: Struggling with substance abuse or addiction and need a change? There are students right here on campus going through the same thing who are here to support you. Find out more [here](https://www.smu.edu/studentaffairs/drbobsmithhealthcenter/counseling-services/counselingoptions)."},
+    {"wellness": "Campus Well: Check out SMU's health and well-being blog! This site has tons of information written by students for students. Read articles, watch videos, take quizzes and more! Find out more [here](https://smu.campuswell.com/)."},
+    {"habits": "WellTrack: Looking for more ways to improve your mental health? Check out WellTrack, SMU's FREE mental health app. The app contains meditation exercises, daily mood checks, stress reduction tips, and much more to help you manage stress, depression, and anxiety while at college. Find out more [here](http://smu.welltrack.com/)."},
     {"mental health" : "TogetherAll: Mental health support. 24/7. Confidential, online peer community. Find out more [here](https://account.v2.togetherall.com/register/student)."}
     ]
 }"""
@@ -105,7 +83,7 @@ days_of_week = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturda
 
 
 #while True:
-def call_chatbot(question, history):
+def call_chatbot(question, history, user_id):
     q = question
 
     if q.lower() in ["exit", "quit", "bye", "thank you bye", "goodbye"]:
@@ -149,9 +127,6 @@ def call_chatbot(question, history):
         # reminders = input("Would you like to set reminders? (yes/no) ").lower() == 'yes'
         # weeks = int(input("For how many weeks do you want to set this goal? "))
 
-        # #retrieve from session
-        # user_id = 123456  
-
         # # Create the goal in the database
         # create_goal(db, user_id, title, category, days, reminders, weeks)
 
@@ -180,8 +155,7 @@ def call_chatbot(question, history):
         config={"configurable": {"session_id": SESSION_ID}}
     )
 
-    updated_history = history + "Human message: " + q + "\n AI Message: " + response + "\n" 
-    return (response, updated_history)
+    return response
     # Print the response
     #print(response)
     #send_response(response)

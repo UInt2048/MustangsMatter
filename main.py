@@ -1,129 +1,133 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, jsonify, render_template, request, session
 from propelauth_py import init_base_auth, UnauthorizedException
 from collections import namedtuple
 from datetime import datetime
 from bson import ObjectId
-import models
+import os
 import chatbot_module
+import models
 
 app = Flask(__name__)
 
 # Initialize PropelAuth
-auth = init_base_auth(
-    "https://62994739.propelauthtest.com",
-    "bdb493aff8143e9cdcd82bba138064e34bb20ee62c040c513e62fc64977e0eda5da09c127aab6e47c94a8705f25994ed"
-)
+auth = init_base_auth(os.environ["PROPELAUTH_BASE"], os.environ["PROPELAUTH_KEY"])
 
-#global_user_id = 0
-global_user_id = "123456"
-global_message_pairs = []
-global_chat_history = ""
-
-def get_data() -> dict[list]:
-    # print([*models.db["users"].find({})])
-
-    if (global_user_id != 0):
-        user = models.db["users"].find_one({"userID": global_user_id})
-        if (user is None):
-            print("User does not exist in database, displaying logged out view")
-            return []
-        
-        if "_id" in user:
-            user["_id"] = str(user["_id"])
-
-        print(user)
-        goals = [*models.db["goals"].find({"userID": user.get("userID", 0)})]
-        print("There are {} goals".format(len(goals)))
-        for goal in goals:
-            if "_id" in goal:
-                goal["_id"] = str(goal["_id"])
-            print(goal)
-        goals.insert(0, user)
-        return goals
-    else:
-        print("No data can be retrieved as user is logged out")
-        return []
-
-@app.route("/add", methods=['GET', 'POST'])
-def add_data():
-    """Do something to add a goal"""
-    name = request.args['name']
-    goal_type = request.args['type']
-    days = []
-    notifs = int(request.args['notifs']) != 0
-    weeks = int(request.args['weeks'])
-    for i in range(0, 7):
-        days.append(int(request.args["d%d" % i]) != 0)
-    return add_data_internal(name, goal_type, days, notifs, weeks)
-
-def add_data_internal(name: str, goal_type: str, days: list[bool], notifs: bool, weeks: int):
-    print("We're adding {}, {}, {}, {}, {}".format(name, goal_type, days, notifs, weeks))
-    models.create_goal(models.db, global_user_id, name, goal_type, days, notifs, weeks)
-    return main()
-
-@app.route("/edit", methods=['GET', 'POST'])
-def edit_goal():
-    """Do something to edit a goal"""
-    goal_id = request.args['id']
-    name = request.args['name']
-    notifs = int(request.args['notifs']) != 0
-    return edit_goal_internal(goal_id, name, notifs)
-
-def edit_goal_internal(goal_id: str, name: str, notifs: bool):
-    print("We're changing goal number {} to name {} and notifications {}".format(goal_id, name, notifs))
-    Request = namedtuple("Request", ["method", "json"])
-    models.edit_goal(models.db, Request("PUT", {"name": name, "reminders": notifs}), goal_id)
-    return main()
-
-@app.route("/complete", methods=['GET', 'POST'])
-def complete_goal():
-    """Do something to update data"""
-    return complete_goal_internal(request.args['goal'])
-
-def complete_goal_internal(goal_id: str):
-    print("We're completing goal number {}".format(goal_id))
-    models.complete_goal(models.db, global_user_id, goal_id) 
-    return main()
-
-@app.route("/login", methods=['GET', 'POST'])
-def login_user():
-    """Do something to log in a user"""
-    user_id = request.args['id']
-    email = request.args['email']
-    name = request.args['name']
-    return login_user_internal(user_id, email, name)
-
-def login_user_internal(user_id: str, email: str, name: str):
-    global global_user_id
-    print("We logged in {} whose email is {} and ID is {}".format(name, email, user_id))
-    if (models.db["users"].find_one({"userID": global_user_id}) is None):
-        models.register_user(models.db, name, email, user_id)
-    global_user_id = user_id
-    return get_data()
-
-@app.route("/message", methods=['GET', 'POST'])
-def message_user():
-    global global_message_pairs
-    message = request.args['text']
-    global_message_pairs.append(message_user_internal(message))
-    return main()
-
-def message_user_internal(msg: str):
-    print("We are messaging {}".format(msg))
-    user_msg = {"date": datetime.now(), "msg": msg}
-    global global_chat_history
-    response, global_chat_history = chatbot_module.call_chatbot(msg, global_chat_history)
-    bot_msg = {"date": datetime.now(), "msg": response}
-    return (user_msg, bot_msg)
+# Required for session
+app.secret_key = hex(hash(os.environ["MONGODB_PASS"]))
 
 @app.route("/")
 def main():
      """Main page of the app"""
-     print(global_message_pairs)
-
      # Front-end conversion for display
-     print("Getting data")
-     our_data = get_data()
+     return render_template("index.html", propelauth_base = os.environ["PROPELAUTH_BASE"])
+
+@app.route("/login", methods=['GET', 'POST'])
+def login_user():
+    """Set session to authenticated user and show authenticated content"""
+    user_id: str = request.args['id']
+    email: str = request.args['email']
+    name: str = request.args['name']
+    
+    if (models.db["users"].find_one({"userID": user_id}) is None):
+        models.register_user(models.db, name, email, user_id)
+    session["user_id"] = user_id
+    return auth_data(user_id, email, name)
+
+@app.route("/logout", methods=['GET', 'POST'])
+def logout_user():
+    """Ensure session is clear"""
+    if (session["user_id"] is not None):
+        models.db["users"].update_one({"userID": session["user_id"]}, {"$unset": {"chatbot_history": []}})
+        session["user_id"] = None
+    return ""
+
+@app.route("/add", methods=['GET', 'POST'])
+def add_data():
+    """Add a goal to database and update authenticated content"""
+    name: str = request.args['name']
+    goal_type: str = request.args['type']
+    days: list[bool] = [int(request.args[f"d{i}"]) != 0 for i in range(0, 7)]
+    notifs: bool = int(request.args['notifs']) != 0
+    weeks: int = int(request.args['weeks'])
+    
+    models.create_goal(models.db, session["user_id"], name, goal_type, days, notifs, weeks)
+    return auth_data(session["user_id"])
+
+@app.route("/edit", methods=['GET', 'POST'])
+def edit_goal():
+    """Edit a goal in database and update authenticated content"""
+    goal_id: str = request.args['id']
+    name: str = request.args['name']
+    notifs: bool = int(request.args['notifs']) != 0
+    
+    Request = namedtuple("Request", ["method", "json"])
+    models.edit_goal(models.db, Request("PUT", {"title": name, "reminders": notifs}), goal_id)
+    return auth_data(session["user_id"])
+
+@app.route("/delete", methods=['GET', 'POST'])
+def delete_goal():
+    """Remove a goal from database and update authenticated content"""
+    goal_id: str = request.args['goal']
+    
+    Request = namedtuple("Request", ["method", "json"])
+    models.edit_goal(models.db, Request("DELETE", {}), goal_id)
+    return auth_data(session["user_id"])
+
+@app.route("/complete", methods=['GET', 'POST'])
+def complete_goal():
+    """Complete a goal if permissible and update authenticated content"""
+    goal_id: str = request.args['goal']
+    
+    models.complete_goal(models.db, session["user_id"], goal_id) 
+    return auth_data(session["user_id"])
+
+@app.route("/message", methods=['GET', 'POST'])
+def message_chatbot():
+    """Message the chatbot and update authenticated content"""
+    msg: str = request.args['text']
+    user_id: str = session["user_id"]
+    
+    chatbot_history = models.db["users"].find_one({"userID": user_id}).get("chatbot_history", [])
+    result = {"user_date": datetime.now(), "user_msg": msg}
+    history = generate_machine_history(chatbot_history)
+
+    result["ai_msg"] = chatbot_module.call_chatbot(msg, history, user_id)
+    result["ai_date"] = datetime.now()
+    chatbot_history.append(result)
+    models.db["users"].update_one({"userID": user_id}, {"$set": {"chatbot_history": chatbot_history}})
+    return auth_data(user_id)
+
+def generate_machine_history(history: list[dict]) -> str:
+    """Convert history from frontend-facing form to chatbot-facing form"""
+    return "".join(["Human message: {}\nAI message: {}\n".
+        format(pair["user_msg"], pair["ai_msg"]) for pair in history])
+
+def auth_data(user_id: str, email: str | None = None, name: str | None = None):
+    """Get and display authenticated content"""
+    return display_data(get_data(user_id, email, name))
+
+def get_data(user_id: str, email: str | None, name: str | None) -> list[dict]:
+    """Fetch data for authenticated user"""
+    user = models.db["users"].find_one({"userID": user_id})
+    if (user is None):
+        return []
+    
+    # Update the database if email or name has been changed
+    if (email is not None and email != user["email"]):
+        models.db["users"].update_one({"userID": user_id}, {"$set": {"email": email}})
+    if (name is not None and name != user["name"]):
+        models.db["users"].update_one({"userID": user_id}, {"$set": {"name": name}})
+
+    # Retrieve updated user and associated goals
+    user = models.db["users"].find_one({"userID": user_id})
+    goals = [user, *models.db["goals"].find({"userID": user["userID"]})]
+    for goal in goals:
+        if "_id" in goal:
+            goal["_id"] = str(goal["_id"])
+    return goals
+
+def display_data(our_data: list[dict]):
+     """Render authenticated content from provided data"""
      if len(our_data) > 0:
         profile_data = our_data[0]
         incomplete_goals = []
@@ -134,28 +138,31 @@ def main():
             for day_index, _ in enumerate(goal["days"]):
                 if (goal["days"][day_index]):
                     days.append(day_names[day_index])
-            goal["user_days"] = ', '.join(days)
-            goal["weeks"] = goal["limit"] // len(days)
+            if len(days) > 0:
+                goal["user_days"] = ', '.join(days)
+                goal["weeks"] = goal["limit"] // len(days)
+            else:
+                goal["user_days"] = "None"
+                goal["weeks"] = 1
+                goal["limit"] = 1
             match goal["category"]:
                 case "physical":
                     goal["color"] = "#cc0035"
                 case "mental":
                     goal["color"] = "#354ca1"
-            if (goal["days"] == goal["limit"]):
+            if (goal["times_completed"] == goal["limit"]):
                 complete_goals.append(goal)
             else:
                 incomplete_goals.append(goal)
-        return render_template("index.html",
+        return render_template("auth.html",
             profile_data = profile_data,
             incomplete_goals = incomplete_goals,
-            complete_goals = complete_goals,
-            messages = global_message_pairs)
+            complete_goals = complete_goals)
      else:
-         return render_template("index.html",
-             profile_data = [],
+         return render_template("auth.html",
+             profile_data = {},
              incomplete_goals = [],
-             complete_goals = [],
-             messages = [])
+             complete_goals = [])
 
 @app.route("/api/whoami", methods=["GET"])
 def whoami():
@@ -168,3 +175,12 @@ def whoami():
      except UnauthorizedException:
         return jsonify({"error": "Invalid access token"}), 401
 
+@app.route("/404")
+@app.errorhandler(404)
+def error_404(error = None):
+    return "Peruna got lost :(<br/>Please ensure you typed the URL correctly."
+
+@app.route("/500")
+@app.errorhandler(500)
+def error_500(error = None):
+    return "Peruna pooped on the field :(<br/>A handler will take care of this soon." 
